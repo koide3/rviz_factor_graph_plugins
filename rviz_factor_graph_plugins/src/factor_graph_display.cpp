@@ -3,8 +3,8 @@
 namespace rviz_factor_graph_plugins {
 
 FactorGraphDisplay::FactorGraphDisplay() {
-  length_property = new rviz_common::properties::FloatProperty("Axes length", 0.5f, "Length of each axis, in meters.", this, SLOT(updateShape()));
-  radius_property = new rviz_common::properties::FloatProperty("Axes radius", 0.02f, "Radius of each axis, in meters.", this, SLOT(updateShape()));
+  length_property = new rviz_common::properties::FloatProperty("Axes length", 1.0f, "Length of each axis, in meters.", this, SLOT(updateShape()));
+  radius_property = new rviz_common::properties::FloatProperty("Axes radius", 0.1f, "Radius of each axis, in meters.", this, SLOT(updateShape()));
 }
 
 FactorGraphDisplay::~FactorGraphDisplay() {}
@@ -13,6 +13,7 @@ void FactorGraphDisplay::onInitialize() {
   MFDClass::onInitialize();
   visual.reset(new FactorGraphVisual(context_->getSceneManager(), scene_node_));
 
+  visual->setAxesShape(length_property->getFloat(), radius_property->getFloat());
   visual->setGetPointCloudService(rviz_ros_node_.lock()->get_raw_node()->create_client<factor_graph_interfaces::srv::GetPointCloud>("/get_point_cloud"));
 }
 

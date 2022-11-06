@@ -51,6 +51,7 @@ private:
 
   std::uint64_t loading_counter;
   FactorGraph::ConstSharedPtr last_graph_msg;
+  std::deque<std::uint64_t> load_priority_queue;
   std::deque<std::shared_future<GetPointCloud::Response::SharedPtr>> get_point_cloud_results;
 };
 }  // namespace rviz_factor_graph_plugins

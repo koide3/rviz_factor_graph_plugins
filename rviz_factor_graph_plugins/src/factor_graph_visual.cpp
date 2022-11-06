@@ -116,17 +116,24 @@ void FactorGraphVisual::update() {
         node->second->setPointCloud(response->points);
       }
     }
-
-    std::cout << "response:" << response->success << " " << response->key << " " << response->points.width * response->points.height << std::endl;
   }
 
   const int count = 5;
-  while (get_point_cloud_results.size() < count) {
-    const auto& poses = last_graph_msg->poses;
-    const auto& pose = poses[(loading_counter++) % poses.size()];
-
+  for (int i = 0; i < count && get_point_cloud_results.size() < count; i++) {
     auto req = std::make_shared<GetPointCloud::Request>();
-    req->key = pose.key;
+
+    if (!load_priority_queue.empty()) {
+      req->key = load_priority_queue.front();
+      load_priority_queue.pop_front();
+    } else {
+      const auto& poses = last_graph_msg->poses;
+      req->key = poses[(loading_counter++) % poses.size()].key;
+    }
+
+    auto found = pose_nodes.find(req->key);
+    if (found == pose_nodes.end() || found->second->points) {
+      continue;
+    }
 
     get_point_cloud_results.emplace_back(get_point_cloud->async_send_request(req));
   }
@@ -154,6 +161,7 @@ void FactorGraphVisual::setMessage(const FactorGraph::ConstSharedPtr& graph_msg)
     if (node == pose_nodes.end()) {
       node = pose_nodes.emplace_hint(node, key, new PoseNode(scene_manager_, frame_node_));
       node->second->setAxesShape(axes_length, axes_radius);
+      load_priority_queue.emplace_back(key);
     }
     node->second->setPose(pos, ori);
     traj_positions[i] = pos;
