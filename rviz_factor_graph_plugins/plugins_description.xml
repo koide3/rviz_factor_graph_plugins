@@ -1,0 +1,12 @@
+<library path="rviz_factor_graph_plugins">
+
+  <class
+    name="rviz_factor_graph_plugins/FactorGraph"
+    type="rviz_factor_graph_plugins::FactorGraphDisplay"
+    base_class_type="rviz_common::Display"
+  >
+    <description>
+      Displays a factor graph.
+    </description>
+  </class>
+</library>
