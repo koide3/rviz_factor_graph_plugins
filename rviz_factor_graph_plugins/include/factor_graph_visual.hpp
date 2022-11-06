@@ -13,6 +13,8 @@
 #include <factor_graph_interfaces/msg/factor_graph.hpp>
 #include <factor_graph_interfaces/srv/get_point_cloud.hpp>
 
+#include <point_color_settings.hpp>
+
 namespace rviz_factor_graph_plugins {
 
 class Lines;
@@ -33,7 +35,10 @@ public:
   void setMessage(const FactorGraph::ConstSharedPtr& graph_msg);
 
   void setAxesShape(float length, float radius);
-  void setGetPointCloudService(rclcpp::Client<GetPointCloud>::SharedPtr service);
+  void setPointStyle(float size, float alpha, rviz_rendering::PointCloud::RenderMode mode);
+  void setColorSettings(const std::shared_ptr<PointColorSettings>& color_settings);
+
+  void setGetPointCloudService(std::shared_ptr<rclcpp::Node> node, rclcpp::Client<GetPointCloud>::SharedPtr service);
 
 private:
   std::shared_ptr<Lines> trajectory_lines;
@@ -44,6 +49,12 @@ private:
   float axes_length;
   float axes_radius;
 
+  float point_size;
+  float point_alpha;
+  rviz_rendering::PointCloud::RenderMode point_style;
+
+  std::shared_ptr<PointColorSettings> color_settings;
+
   Ogre::SceneNode* frame_node_;
   Ogre::SceneManager* scene_manager_;
 
@@ -53,5 +64,6 @@ private:
   FactorGraph::ConstSharedPtr last_graph_msg;
   std::deque<std::uint64_t> load_priority_queue;
   std::deque<std::shared_future<GetPointCloud::Response::SharedPtr>> get_point_cloud_results;
+  std::vector<std::shared_future<GetPointCloud::Response::SharedPtr>> get_point_cloud_results_disposed;
 };
 }  // namespace rviz_factor_graph_plugins

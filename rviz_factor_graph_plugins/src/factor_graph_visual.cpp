@@ -1,68 +1,10 @@
 #include <factor_graph_visual.hpp>
 
 #include <iostream>
+#include <pose_node.hpp>
 #include <rviz_lines.hpp>
 
 namespace rviz_factor_graph_plugins {
-
-struct PoseNode {
-  PoseNode(Ogre::SceneManager* scene_manager, Ogre::SceneNode* parent_node) {
-    node = parent_node->createChildSceneNode();
-    axes.reset(new rviz_rendering::Axes(scene_manager, node, 0.5f, 0.05f));
-  }
-  ~PoseNode() {}
-
-  void setPointCloud(const sensor_msgs::msg::PointCloud2& points_msg) {
-    int x_offset = -1;
-    int y_offset = -1;
-    int z_offset = -1;
-
-    for (const auto& field : points_msg.fields) {
-      if (field.name == "x") {
-        x_offset = field.offset;
-      } else if (field.name == "y") {
-        y_offset = field.offset;
-      } else if (field.name == "z") {
-        z_offset = field.offset;
-      }
-
-      if (field.datatype != 7) {
-        std::cerr << "warning: only float32 point coordinates are supported!!" << std::endl;
-      }
-    }
-
-    const int num_points = points_msg.width * points_msg.height;
-    std::vector<rviz_rendering::PointCloud::Point> points(num_points);
-    for (int i = 0; i < num_points; i++) {
-      points[i].position.x = *reinterpret_cast<const float*>(points_msg.data.data() + points_msg.point_step * i + x_offset);
-      points[i].position.y = *reinterpret_cast<const float*>(points_msg.data.data() + points_msg.point_step * i + y_offset);
-      points[i].position.z = *reinterpret_cast<const float*>(points_msg.data.data() + points_msg.point_step * i + z_offset);
-    }
-
-    this->points = std::make_shared<rviz_rendering::PointCloud>();
-    this->points->setName("points");
-    this->points->addPoints(points.begin(), points.end());
-    this->points->setRenderMode(rviz_rendering::PointCloud::RenderMode::RM_POINTS);
-
-    node->attachObject(this->points.get());
-  }
-
-  void setPose(const Ogre::Vector3& position, const Ogre::Quaternion& orientation) {
-    node->setPosition(position);
-    node->setOrientation(orientation);
-  }
-  Ogre::Vector3 getPosition() const { return node->getPosition(); }
-  Ogre::Quaternion getOrientation() const { return node->getOrientation(); }
-
-  void setAxesShape(float length, float radius) {  //
-    axes->set(length, radius);
-  }
-
-  Ogre::SceneNode* node;
-
-  std::shared_ptr<rviz_rendering::Axes> axes;
-  std::shared_ptr<rviz_rendering::PointCloud> points;
-};
 
 FactorGraphVisual::FactorGraphVisual(Ogre::SceneManager* scene_manager, Ogre::SceneNode* parent_node) {
   this->scene_manager_ = scene_manager;
@@ -70,6 +12,9 @@ FactorGraphVisual::FactorGraphVisual(Ogre::SceneManager* scene_manager, Ogre::Sc
 
   axes_length = 0.5f;
   axes_radius = 0.02f;
+
+  point_style = rviz_rendering::PointCloud::RM_FLAT_SQUARES;
+  color_settings.reset(new PointColorSettings);
 
   this->trajectory_lines.reset(new Lines(scene_manager, this->frame_node_));
   this->trajectory_lines->setColor(1.0f, 0.0f, 0.0f, 1.0f);
@@ -86,6 +31,7 @@ FactorGraphVisual::~FactorGraphVisual() {
 }
 
 void FactorGraphVisual::reset() {
+  this->last_graph_msg.reset();
   this->pose_nodes.clear();
 
   this->trajectory_lines.reset(new Lines(scene_manager_, frame_node_));
@@ -96,7 +42,7 @@ void FactorGraphVisual::reset() {
 }
 
 void FactorGraphVisual::update() {
-  if (!get_point_cloud->service_is_ready() || !last_graph_msg || last_graph_msg->poses.empty()) {
+  if (!get_point_cloud->wait_for_service(std::chrono::nanoseconds(1)) || !last_graph_msg || last_graph_msg->poses.empty()) {
     return;
   }
 
@@ -113,7 +59,8 @@ void FactorGraphVisual::update() {
     if (response->success) {
       auto node = pose_nodes.find(response->key);
       if (node != pose_nodes.end()) {
-        node->second->setPointCloud(response->points);
+        node->second->setPointCloud(response->points, color_settings);
+        node->second->setPointStyle(point_size, point_alpha, point_style);
       }
     }
   }
@@ -131,7 +78,11 @@ void FactorGraphVisual::update() {
     }
 
     auto found = pose_nodes.find(req->key);
-    if (found == pose_nodes.end() || found->second->points) {
+    if (found == pose_nodes.end()) {
+      continue;
+    }
+
+    if (found->second->points && !found->second->recoloringRequired(*color_settings)) {
       continue;
     }
 
@@ -195,7 +146,42 @@ void FactorGraphVisual::setAxesShape(float length, float radius) {
   }
 }
 
-void FactorGraphVisual::setGetPointCloudService(rclcpp::Client<GetPointCloud>::SharedPtr service) {
+void FactorGraphVisual::setPointStyle(float size, float alpha, rviz_rendering::PointCloud::RenderMode mode) {
+  point_size = size;
+  point_alpha = alpha;
+  point_style = mode;
+
+  for (auto& node : pose_nodes) {
+    node.second->setPointStyle(point_size, point_alpha, point_style);
+  }
+}
+
+void FactorGraphVisual::setColorSettings(const std::shared_ptr<PointColorSettings>& color_settings) {
+  for (auto& node : pose_nodes) {
+    const auto& settings = node.second->color_settings;
+
+    bool needs_recoloring = false;
+    needs_recoloring |= (settings.mode != color_settings->mode);
+    needs_recoloring |= (settings.axis != color_settings->axis);
+    needs_recoloring |= std::abs(settings.color.r - color_settings->color.r) > 1e-3;
+    needs_recoloring |= std::abs(settings.color.g - color_settings->color.g) > 1e-3;
+    needs_recoloring |= std::abs(settings.color.b - color_settings->color.b) > 1e-3;
+
+    if (needs_recoloring) {
+      node.second->points.reset();
+    }
+  }
+
+  this->color_settings = color_settings;
+}
+
+void FactorGraphVisual::setGetPointCloudService(std::shared_ptr<rclcpp::Node> node, rclcpp::Client<GetPointCloud>::SharedPtr service) {
+  // poor way to avoid accessing disposed service calls
+  if (!get_point_cloud_results.empty()) {
+    get_point_cloud_results_disposed.insert(get_point_cloud_results_disposed.end(), get_point_cloud_results.begin(), get_point_cloud_results.end());
+    get_point_cloud_results.clear();
+  }
+
   get_point_cloud = service;
 }
 
