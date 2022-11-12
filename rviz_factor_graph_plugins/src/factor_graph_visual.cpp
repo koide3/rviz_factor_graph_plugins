@@ -9,16 +9,18 @@ namespace rviz_factor_graph_plugins {
 FactorGraphVisual::FactorGraphVisual(Ogre::SceneManager* scene_manager, Ogre::SceneNode* parent_node) {
   this->scene_manager_ = scene_manager;
   this->frame_node_ = parent_node->createChildSceneNode();
+  factor_lines.reset(new Lines(scene_manager, this->frame_node_));
+
+  max_requests = 5;
+  max_load_count = 15;
 
   show_axes = true;
   axes_length = 0.5f;
   axes_radius = 0.02f;
 
+  show_points = true;
   point_style = rviz_rendering::PointCloud::RM_FLAT_SQUARES;
   color_settings.reset(new PointColorSettings);
-
-  this->factor_lines.reset(new Lines(scene_manager, this->frame_node_));
-  this->factor_lines->setColor(0.0f, 1.0f, 0.0f, 0.2f);
 
   loading_counter = 0;
 }
@@ -29,9 +31,9 @@ FactorGraphVisual::~FactorGraphVisual() {
 }
 
 void FactorGraphVisual::reset() {
-  this->last_graph_msg.reset();
-  this->pose_nodes.clear();
-  this->factor_lines->clear();
+  last_graph_msg.reset();
+  pose_nodes.clear();
+  factor_lines->clear();
 }
 
 void FactorGraphVisual::update() {
@@ -39,6 +41,7 @@ void FactorGraphVisual::update() {
     return;
   }
 
+  // Get asynchronously fetched points
   while (!get_point_cloud_results.empty()) {
     auto& result = get_point_cloud_results.front().first;
 
@@ -49,28 +52,33 @@ void FactorGraphVisual::update() {
     const auto response = result.get();
     get_point_cloud_results.pop_front();
 
+    const char chr = (response->key >> 56);
+    const size_t index = ((response->key << 8) >> 8);
+
     if (response->success) {
       auto node = pose_nodes.find(response->key);
       if (node != pose_nodes.end()) {
         node->second->setPointCloud(response->points, color_settings);
         node->second->setPointStyle(point_size, point_alpha, point_style);
+      } else {
+        RCLCPP_WARN_STREAM(rclcpp::get_logger("rviz_factor_graph_plugins"), "Node for the fetched points is not found key=" << response->key << " symbol=" << chr << index);
       }
     } else {
-      const char chr = (response->key >> 56);
-      const size_t index = ((response->key << 8) >> 8);
       RCLCPP_WARN_STREAM(rclcpp::get_logger("rviz_factor_graph_plugins"), "Failed to retrieve points for key=" << response->key << " symbol=" << chr << index);
     }
   }
 
-  const int count = 10;
-  const int max_requests = 5;
-  for (int i = 0; i < count && get_point_cloud_results.size() < max_requests; i++) {
+  // Issue asynchronous points fetching calls
+  for (int i = 0; i < max_load_count && get_point_cloud_results.size() < max_requests; i++) {
     auto req = std::make_shared<GetPointCloud::Request>();
 
+    // Load points for newly created points
     if (!load_priority_queue.empty()) {
       req->key = load_priority_queue.front();
       load_priority_queue.pop_front();
-    } else {
+    }
+    // Load points for existing nodes without points if the priority queue is empty
+    else {
       const auto& poses = last_graph_msg->poses;
       const auto& pose = poses[(loading_counter++) % poses.size()];
 
@@ -87,6 +95,7 @@ void FactorGraphVisual::update() {
     }
 
     if (found->second->points && !found->second->recoloringRequired(*color_settings)) {
+      // Avoid re-loading because the node already has points
       continue;
     }
 
@@ -140,6 +149,7 @@ void FactorGraphVisual::setMessage(const FactorGraph::ConstSharedPtr& graph_msg)
     node->second->setPose(pos, ori);
   }
 
+  // TODO: use indexed lines for better performance
   std::vector<Ogre::Vector3> factor_points;
   factor_points.reserve(graph_msg->binary_factors.size());
 
@@ -194,6 +204,11 @@ void FactorGraphVisual::setColorSettings(const std::shared_ptr<PointColorSetting
   }
 
   this->color_settings = color_settings;
+}
+
+void FactorGraphVisual::setPointsLoadingParams(int max_load_count, int max_requests) {
+  this->max_requests = max_requests;
+  this->max_load_count = max_load_count;
 }
 
 void FactorGraphVisual::setGetPointCloudService(std::shared_ptr<rclcpp::Node> node, rclcpp::Client<GetPointCloud>::SharedPtr service) {

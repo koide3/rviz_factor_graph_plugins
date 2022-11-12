@@ -62,7 +62,7 @@ factor_graph_interfaces::msg::FactorGraph::SharedPtr convert_to_msg(const gtsam:
         break;
       case 2:
         if (keys.find(factor->keys()[0]) != keys.end() && keys.find(factor->keys()[1]) != keys.end()) {
-          BetweenFactor factor_msg;
+          BinaryFactor factor_msg;
           factor_msg.keys[0] = factor->keys()[0];
           factor_msg.keys[1] = factor->keys()[1];
           graph_msg->binary_factors.emplace_back(factor_msg);

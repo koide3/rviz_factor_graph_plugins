@@ -15,8 +15,8 @@ find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(factor_graph_interfaces
   "msg/PoseWithID.msg"
   "msg/PointWithID.msg"
-  "msg/PriorFactor.msg"
-  "msg/BetweenFactor.msg"
+  "msg/UnaryFactor.msg"
+  "msg/BinaryFactor.msg"
   "msg/FactorGraph.msg"
   "srv/GetPointCloud.srv"
   DEPENDENCIES std_msgs sensor_msgs geometry_msgs

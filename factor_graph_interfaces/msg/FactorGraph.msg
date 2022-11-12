@@ -3,5 +3,5 @@ std_msgs/Header header
 PoseWithID[] poses
 PointWithID[] points
 
-PriorFactor[] unary_factors
-BetweenFactor[] binary_factors
+UnaryFactor[] unary_factors
+BinaryFactor[] binary_factors

@@ -41,12 +41,12 @@ public:
   void setPointStyle(float size, float alpha, rviz_rendering::PointCloud::RenderMode mode);
   void setColorSettings(const std::shared_ptr<PointColorSettings>& color_settings);
 
+  void setPointsLoadingParams(int max_load_count, int max_requests);
   void setGetPointCloudService(std::shared_ptr<rclcpp::Node> node, rclcpp::Client<GetPointCloud>::SharedPtr service);
 
 private:
-  std::shared_ptr<Lines> factor_lines;
-
   std::unordered_map<std::uint64_t, std::shared_ptr<PoseNode>> pose_nodes;
+  std::shared_ptr<Lines> factor_lines;
 
   bool show_axes;
   float axes_length;
@@ -63,6 +63,9 @@ private:
   Ogre::SceneManager* scene_manager_;
 
   rclcpp::Client<GetPointCloud>::SharedPtr get_point_cloud;
+
+  int max_requests;
+  int max_load_count;
 
   std::uint64_t loading_counter;
   FactorGraph::ConstSharedPtr last_graph_msg;

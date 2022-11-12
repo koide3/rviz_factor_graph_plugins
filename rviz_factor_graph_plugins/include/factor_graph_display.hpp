@@ -6,6 +6,7 @@
 #include <rviz_common/properties/color_property.hpp>
 
 #include <factor_graph_interfaces/msg/factor_graph.hpp>
+
 #include <factor_graph_visual.hpp>
 #include <point_color_settings.hpp>
 
@@ -31,10 +32,10 @@ public:
 
 private Q_SLOTS:
   void updateVisibility();
-  void updateShape();
   void updatePointStyle();
   void resetRange();
   void updatePointColor();
+  void updatePointsLoadingParams();
   void upateGetPointCloudService();
 
 private:
@@ -60,10 +61,17 @@ private:
   rviz_common::properties::BoolProperty* auto_range_property;
   rviz_common::properties::FloatProperty* range_min_property;
   rviz_common::properties::FloatProperty* range_max_property;
+  rviz_common::properties::ColorProperty* flat_color_property;
 
-  rviz_common::properties::ColorProperty* color_property;
+  rviz_common::properties::StringProperty* frame_id_property;
+  rviz_common::properties::IntProperty* num_poses_property;
+  rviz_common::properties::IntProperty* num_points_property;
+  rviz_common::properties::IntProperty* num_unary_factors;
+  rviz_common::properties::IntProperty* num_binary_factors;
 
   rviz_common::properties::StringProperty* service_property;
+  rviz_common::properties::IntProperty* max_requests_property;
+  rviz_common::properties::IntProperty* max_load_count_property;
 };
 
 }  // namespace rviz_factor_graph_plugins

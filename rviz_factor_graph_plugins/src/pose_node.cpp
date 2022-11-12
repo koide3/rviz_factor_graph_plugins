@@ -1,6 +1,7 @@
 #include <pose_node.hpp>
 
 #include <iostream>
+#include <rclcpp/rclcpp.hpp>
 #include <rviz_rendering/objects/axes.hpp>
 
 #include <colormap.hpp>
@@ -31,6 +32,11 @@ struct ChannelOffsets {
   }
 
   Ogre::Vector3 getPosition(const sensor_msgs::msg::PointCloud2& points_msg, int i) const {
+    if (x_offset < 0 || y_offset < 0 || z_offset < 0) {
+      RCLCPP_WARN_ONCE(rclcpp::get_logger("rviz_factor_graph_plugins"), "points_msg does not have point coordinates");
+      return Ogre::Vector3(0.0, 0.0, 0.0);
+    }
+
     Ogre::Vector3 pos;
     pos.x = *reinterpret_cast<const float*>(points_msg.data.data() + points_msg.point_step * i + x_offset);
     pos.y = *reinterpret_cast<const float*>(points_msg.data.data() + points_msg.point_step * i + y_offset);
@@ -40,6 +46,7 @@ struct ChannelOffsets {
 
   double getIntensity(const sensor_msgs::msg::PointCloud2& points_msg, int i) const {
     if (intensity_offset < 0) {
+      RCLCPP_WARN_ONCE(rclcpp::get_logger("rviz_factor_graph_plugins"), "points_msg does not have intensities");
       return 0.0;
     }
 
@@ -54,6 +61,7 @@ struct ChannelOffsets {
 
   Ogre::ColourValue getColor(const sensor_msgs::msg::PointCloud2& points_msg, int i) const {
     if (rgb_offset < 0 || rgb_datatype != sensor_msgs::msg::PointField::UINT32) {
+      RCLCPP_WARN_ONCE(rclcpp::get_logger("rviz_factor_graph_plugins"), "points_msg does not have colors");
       return Ogre::ColourValue();
     }
 
@@ -84,12 +92,14 @@ PoseNode::PoseNode(Ogre::SceneManager* scene_manager, Ogre::SceneNode* parent_no
 
   points_node = node->createChildSceneNode();
 }
+
 PoseNode::~PoseNode() {}
 
 void PoseNode::setPointCloud(const sensor_msgs::msg::PointCloud2& points_msg, const std::shared_ptr<PointColorSettings>& color_settings) {
   const ChannelOffsets offsets(points_msg);
   const int num_points = points_msg.width * points_msg.height;
 
+  // Extract point coordinates
   std::vector<rviz_rendering::PointCloud::Point> points(num_points);
   for (int i = 0; i < num_points; i++) {
     points[i].position = offsets.getPosition(points_msg, i);
@@ -98,6 +108,7 @@ void PoseNode::setPointCloud(const sensor_msgs::msg::PointCloud2& points_msg, co
   const Ogre::Vector3 position = getPosition();
   const Ogre::Quaternion orientation = getOrientation();
 
+  // Compute values for color encoding
   std::vector<double> values(num_points, 0.0);
   if (color_settings->mode == PointColorSettings::AxisColor) {
     const int axis = static_cast<int>(color_settings->axis);
@@ -111,6 +122,7 @@ void PoseNode::setPointCloud(const sensor_msgs::msg::PointCloud2& points_msg, co
     }
   }
 
+  // Auto update axis range
   if (color_settings->auto_range) {
     for (const double value : values) {
       color_settings->range_min = std::min(color_settings->range_min, value);
@@ -118,6 +130,7 @@ void PoseNode::setPointCloud(const sensor_msgs::msg::PointCloud2& points_msg, co
     }
   }
 
+  // Calc point color from encoding values
   const auto calcColor = [&](int i) {
     const double max = color_settings->range_max;
     const double min = color_settings->range_min;
@@ -127,6 +140,7 @@ void PoseNode::setPointCloud(const sensor_msgs::msg::PointCloud2& points_msg, co
     return Ogre::ColourValue(rgb[0] / 255.0f, rgb[1] / 255.0f, rgb[2] / 255.0f, 1.0);
   };
 
+  // Set point colors
   for (int i = 0; i < num_points; i++) {
     switch (color_settings->mode) {
       case PointColorSettings::AxisColor:
@@ -160,6 +174,7 @@ void PoseNode::setVisibility(bool show_axes, bool show_points) {
 
 void PoseNode::setPose(const Ogre::Vector3& position, const Ogre::Quaternion& orientation) {
   if (points && recoloringRequired(position, orientation)) {
+    // Reset points to re-compute point colors
     points.reset();
   }
 
@@ -175,7 +190,7 @@ Ogre::Quaternion PoseNode::getOrientation() const {
   return node->getOrientation();
 }
 
-void PoseNode::setAxesShape(float length, float radius) {  //
+void PoseNode::setAxesShape(float length, float radius) {
   axes->set(length, radius);
 }
 
@@ -187,7 +202,7 @@ void PoseNode::setPointStyle(float size, float alpha, rviz_rendering::PointCloud
   }
 }
 
-bool PoseNode::recoloringRequired(const Ogre::Vector3& position, const Ogre::Quaternion& orientation) {  //
+bool PoseNode::recoloringRequired(const Ogre::Vector3& position, const Ogre::Quaternion& orientation) {
   if (color_settings.mode == PointColorSettings::AxisColor) {
     if ((this->getPosition() - position).length() > 1e-2) {
       return true;
@@ -197,7 +212,7 @@ bool PoseNode::recoloringRequired(const Ogre::Vector3& position, const Ogre::Qua
     Ogre::Vector3 axis;
     (this->getOrientation().Inverse() * orientation).ToAngleAxis(angle, axis);
 
-    if (angle.valueDegrees() > 0.5f) {
+    if (angle.valueDegrees() > 0.1f) {
       return true;
     }
   }
@@ -205,7 +220,7 @@ bool PoseNode::recoloringRequired(const Ogre::Vector3& position, const Ogre::Qua
   return false;
 }
 
-bool PoseNode::recoloringRequired(const PointColorSettings& color_settings) {  //
+bool PoseNode::recoloringRequired(const PointColorSettings& color_settings) {
   if (this->color_settings.mode != color_settings.mode) {
     return true;
   }

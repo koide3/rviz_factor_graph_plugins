@@ -15,6 +15,7 @@ struct PointColorSettings {
   PointColorSettings() {
     mode = FlatColor;
     axis = X;
+    colormap = COLORMAP::TURBO;
     color = Ogre::ColourValue(1.0f, 1.0f, 1.0f, 1.0f);
 
     auto_range = true;
