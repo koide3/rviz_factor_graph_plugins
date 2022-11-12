@@ -19,6 +19,7 @@ qt5_wrap_cpp(rviz_factor_graph_plugins_moc_files
   include/factor_graph_display.hpp
 )
 ament_auto_add_library(rviz_factor_graph_plugins SHARED
+  src/colormap.cpp
   src/rviz_lines.cpp
   src/pose_node.cpp
   src/factor_graph_visual.cpp

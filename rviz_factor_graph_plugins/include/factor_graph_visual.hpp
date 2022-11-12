@@ -31,6 +31,9 @@ public:
   void reset();
   void update();
 
+  void setVisibility(bool show_factors, bool show_axes, bool show_points);
+  void setFactorColor(const Ogre::ColourValue& factor_color);
+
   void setPose(const Ogre::Vector3& position, const Ogre::Quaternion& orientation);
   void setMessage(const FactorGraph::ConstSharedPtr& graph_msg);
 
@@ -41,14 +44,15 @@ public:
   void setGetPointCloudService(std::shared_ptr<rclcpp::Node> node, rclcpp::Client<GetPointCloud>::SharedPtr service);
 
 private:
-  std::shared_ptr<Lines> trajectory_lines;
   std::shared_ptr<Lines> factor_lines;
 
   std::unordered_map<std::uint64_t, std::shared_ptr<PoseNode>> pose_nodes;
 
+  bool show_axes;
   float axes_length;
   float axes_radius;
 
+  bool show_points;
   float point_size;
   float point_alpha;
   rviz_rendering::PointCloud::RenderMode point_style;
@@ -63,7 +67,6 @@ private:
   std::uint64_t loading_counter;
   FactorGraph::ConstSharedPtr last_graph_msg;
   std::deque<std::uint64_t> load_priority_queue;
-  std::deque<std::shared_future<GetPointCloud::Response::SharedPtr>> get_point_cloud_results;
-  std::vector<std::shared_future<GetPointCloud::Response::SharedPtr>> get_point_cloud_results_disposed;
+  std::deque<std::pair<std::shared_future<GetPointCloud::Response::SharedPtr>, rclcpp::Client<GetPointCloud>::SharedPtr>> get_point_cloud_results;
 };
 }  // namespace rviz_factor_graph_plugins

@@ -1,5 +1,7 @@
 #include <factor_graph_display.hpp>
 
+#include <colormap.hpp>
+
 namespace rviz_factor_graph_plugins {
 
 using GetPointCloud = factor_graph_interfaces::srv::GetPointCloud;
@@ -9,13 +11,18 @@ FactorGraphDisplay::FactorGraphDisplay() {
 
   color_settings.reset(new PointColorSettings);
 
-  length_property = new FloatProperty("Axes length", 1.0f, "Length of each axis, in meters.", this, SLOT(updateShape()));
-  radius_property = new FloatProperty("Axes radius", 0.1f, "Radius of each axis, in meters.", this, SLOT(updateShape()));
+  show_factors_property = new BoolProperty("ShowFactors", true, "Visibility of factors.", this, SLOT(updateVisibility()));
+  factor_color_property = new ColorProperty("FactorColor", QColor(0, 255, 0, 255), "Color to paint factors.", show_factors_property, SLOT(updateVisibility()), this);
+  factor_alpha_property = new FloatProperty("FactorAlpha", 0.2f, "Transparency of factors.", show_factors_property, SLOT(updateVisibility()), this);
 
-  point_size_property = new FloatProperty("Point size", 0.05f, "Radius of each point, in meters.", this, SLOT(updatePointStyle()));
-  point_alpha_property = new FloatProperty("Point alpha", 0.8f, "Transparency of each point.", this, SLOT(updatePointStyle()));
+  show_axes_property = new BoolProperty("ShowAxes", true, "Visibility of axes.", this, SLOT(updateVisibility()));
+  length_property = new FloatProperty("AxesLength", 1.0f, "Length of each axis, in meters.", show_axes_property, SLOT(updateShape()), this);
+  radius_property = new FloatProperty("AxesRadius", 0.1f, "Radius of each axis, in meters.", show_axes_property, SLOT(updateShape()), this);
 
-  point_style_property = new EnumProperty("Point style", "Flat Squares", "Rendering mode to use.", this, SLOT(updatePointStyle()));
+  show_points_property = new BoolProperty("ShowPoints", true, "Visibility of points.", this, SLOT(updateVisibility()));
+  point_size_property = new FloatProperty("PointSize", 0.05f, "Radius of each point, in meters.", show_points_property, SLOT(updatePointStyle()), this);
+  point_alpha_property = new FloatProperty("PointAlpha", 0.8f, "Transparency of each point.", show_points_property, SLOT(updatePointStyle()), this);
+  point_style_property = new EnumProperty("PointStyle", "Flat Squares", "Rendering mode to use.", show_points_property, SLOT(updatePointStyle()), this);
   point_style_property->addOption("Points", rviz_rendering::PointCloud::RM_POINTS);
   point_style_property->addOption("Squares", rviz_rendering::PointCloud::RM_SQUARES);
   point_style_property->addOption("Flat Squares", rviz_rendering::PointCloud::RM_FLAT_SQUARES);
@@ -23,22 +30,27 @@ FactorGraphDisplay::FactorGraphDisplay() {
   point_style_property->addOption("Boxes", rviz_rendering::PointCloud::RM_BOXES);
   point_style_property->addOption("Tiles", rviz_rendering::PointCloud::RM_TILES);
 
-  point_color_property = new EnumProperty("Point color transformer", "AxisColor", "Point color transformer", this, SLOT(resetRange()));
+  point_color_property = new EnumProperty("PointColorTransformer", "AxisColor", "Point color transformer", show_points_property, SLOT(resetRange()), this);
   point_color_property->addOption("AxisColor", PointColorSettings::AxisColor);
   point_color_property->addOption("FlatColor", PointColorSettings::FlatColor);
   point_color_property->addOption("Intensity", PointColorSettings::Intensity);
   point_color_property->addOption("RGB", PointColorSettings::RGB);
 
-  axis_property = new EnumProperty("AxisColor", "z", "Point coloring axis.", this, SLOT(resetRange()));
+  axis_property = new EnumProperty("AxisColor", "z", "Point coloring axis.", show_points_property, SLOT(resetRange()), this);
   axis_property->addOption("x", PointColorSettings::X);
   axis_property->addOption("y", PointColorSettings::Y);
   axis_property->addOption("z", PointColorSettings::Z);
 
-  auto_range_property = new BoolProperty("Auto range", true, "Auto compute axis range.", this, SLOT(resetRange()));
-  range_min_property = new FloatProperty("Range min", -10.0f, "AxisColor range.", this, SLOT(updatePointColor()));
-  range_max_property = new FloatProperty("Range max", 10.0f, "AxisColor range.", this, SLOT(updatePointColor()));
+  colormap_property = new EnumProperty("ColorMap", "TURBO", "Colormap for AxisColor.", show_points_property, SLOT(updatePointColor()), this);
+  const auto colormaps = colormap_names();
+  for (int i = 0; i < colormaps.size(); i++) {
+    colormap_property->addOption(colormaps[i], i);
+  }
 
-  color_property = new ColorProperty("FlatColor", QColor(255, 255, 255, 255), "Color to paint points.", this, SLOT(updatePointColor()));
+  auto_range_property = new BoolProperty("AutoRange", true, "Auto compute axis range.", show_points_property, SLOT(resetRange()), this);
+  range_min_property = new FloatProperty("RangeMin", -10.0f, "AxisColor range.", show_points_property, SLOT(updatePointColor()), this);
+  range_max_property = new FloatProperty("RangeMax", 10.0f, "AxisColor range.", show_points_property, SLOT(updatePointColor()), this);
+  color_property = new ColorProperty("FlatColor", QColor(255, 255, 255, 255), "Color to paint points.", show_points_property, SLOT(updatePointColor()), this);
 
   service_property = new StringProperty("Service", "/get_point_cloud", "GetPointCloud service", this, SLOT(upateGetPointCloudService()));
 }
@@ -49,6 +61,7 @@ void FactorGraphDisplay::onInitialize() {
   MFDClass::onInitialize();
   visual.reset(new FactorGraphVisual(context_->getSceneManager(), scene_node_));
 
+  updateVisibility();
   updateShape();
   updatePointStyle();
   updatePointColor();
@@ -70,6 +83,17 @@ void FactorGraphDisplay::update(float wall_dt, float ros_dt) {
 
 void FactorGraphDisplay::processMessage(factor_graph_interfaces::msg::FactorGraph::ConstSharedPtr graph_msg) {
   visual->setMessage(graph_msg);
+}
+
+void FactorGraphDisplay::updateVisibility() {
+  const bool show_factors = show_factors_property->getBool();
+  const bool show_axes = show_axes_property->getBool();
+  const bool show_points = show_points_property->getBool();
+  visual->setVisibility(show_factors, show_axes, show_points);
+
+  auto factor_color = factor_color_property->getOgreColor();
+  factor_color[3] = factor_alpha_property->getFloat();
+  visual->setFactorColor(factor_color);
 }
 
 void FactorGraphDisplay::updateShape() {
@@ -97,6 +121,7 @@ void FactorGraphDisplay::resetRange() {
 void FactorGraphDisplay::updatePointColor() {
   color_settings->mode = static_cast<PointColorSettings::ColorMode>(point_color_property->getOptionInt());
   color_settings->axis = static_cast<PointColorSettings::ColorAxis>(axis_property->getOptionInt());
+  color_settings->colormap = static_cast<COLORMAP>(colormap_property->getOptionInt());
   color_settings->color = color_property->getOgreColor();
 
   color_settings->auto_range = auto_range_property->getBool();

@@ -26,6 +26,9 @@ public:
   virtual ~Lines();
 
   RVIZ_RENDERING_PUBLIC
+  void clear();
+
+  RVIZ_RENDERING_PUBLIC
   void setPoints(const std::vector<Ogre::Vector3>& points, bool line_strip);
 
   RVIZ_RENDERING_PUBLIC

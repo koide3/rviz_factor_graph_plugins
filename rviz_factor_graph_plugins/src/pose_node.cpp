@@ -3,6 +3,8 @@
 #include <iostream>
 #include <rviz_rendering/objects/axes.hpp>
 
+#include <colormap.hpp>
+
 namespace rviz_factor_graph_plugins {
 
 struct ChannelOffsets {
@@ -50,7 +52,14 @@ struct ChannelOffsets {
     return 0.0;
   }
 
-  Ogre::ColourValue getColor(const sensor_msgs::msg::PointCloud2& points_msg, int i) const {}
+  Ogre::ColourValue getColor(const sensor_msgs::msg::PointCloud2& points_msg, int i) const {
+    if (rgb_offset < 0 || rgb_datatype != sensor_msgs::msg::PointField::UINT32) {
+      return Ogre::ColourValue();
+    }
+
+    const std::uint8_t* rgb = points_msg.data.data() + points_msg.point_step * i + rgb_offset;
+    return Ogre::ColourValue(rgb[0] / 255.0f, rgb[1] / 255.0f, rgb[2] / 255.0f);
+  }
 
   int x_offset;
   int y_offset;
@@ -69,7 +78,11 @@ struct ChannelOffsets {
 
 PoseNode::PoseNode(Ogre::SceneManager* scene_manager, Ogre::SceneNode* parent_node) {
   node = parent_node->createChildSceneNode();
-  axes.reset(new rviz_rendering::Axes(scene_manager, node, 0.5f, 0.05f));
+
+  axes_node = node->createChildSceneNode();
+  axes.reset(new rviz_rendering::Axes(scene_manager, axes_node, 0.5f, 0.05f));
+
+  points_node = node->createChildSceneNode();
 }
 PoseNode::~PoseNode() {}
 
@@ -108,8 +121,10 @@ void PoseNode::setPointCloud(const sensor_msgs::msg::PointCloud2& points_msg, co
   const auto calcColor = [&](int i) {
     const double max = color_settings->range_max;
     const double min = color_settings->range_min;
-    double p = (values[i] - min) / (max - min);
-    return Ogre::ColourValue(p, 0.0, 1.0 - p, 1.0);
+    const double p = (values[i] - min) / (max - min);
+    const int x = std::max<int>(0, std::min<int>(255, 255 * p));
+    const auto& rgb = colormap(color_settings->colormap, x);
+    return Ogre::ColourValue(rgb[0] / 255.0f, rgb[1] / 255.0f, rgb[2] / 255.0f, 1.0);
   };
 
   for (int i = 0; i < num_points; i++) {
@@ -135,7 +150,12 @@ void PoseNode::setPointCloud(const sensor_msgs::msg::PointCloud2& points_msg, co
   this->points->setRenderMode(rviz_rendering::PointCloud::RenderMode::RM_POINTS);
   this->color_settings = *color_settings;
 
-  node->attachObject(this->points.get());
+  points_node->attachObject(this->points.get());
+}
+
+void PoseNode::setVisibility(bool show_axes, bool show_points) {
+  axes_node->setVisible(show_axes);
+  points_node->setVisible(show_points);
 }
 
 void PoseNode::setPose(const Ogre::Vector3& position, const Ogre::Quaternion& orientation) {

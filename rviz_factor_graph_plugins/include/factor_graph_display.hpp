@@ -30,6 +30,7 @@ public:
   virtual void processMessage(FactorGraph::ConstSharedPtr graph_msg) override;
 
 private Q_SLOTS:
+  void updateVisibility();
   void updateShape();
   void updatePointStyle();
   void resetRange();
@@ -40,14 +41,21 @@ private:
   std::shared_ptr<FactorGraphVisual> visual;
   std::shared_ptr<PointColorSettings> color_settings;
 
+  rviz_common::properties::BoolProperty* show_factors_property;
+  rviz_common::properties::ColorProperty* factor_color_property;
+  rviz_common::properties::FloatProperty* factor_alpha_property;
+
+  rviz_common::properties::BoolProperty* show_axes_property;
   rviz_common::properties::FloatProperty* length_property;
   rviz_common::properties::FloatProperty* radius_property;
 
+  rviz_common::properties::BoolProperty* show_points_property;
   rviz_common::properties::FloatProperty* point_size_property;
   rviz_common::properties::FloatProperty* point_alpha_property;
   rviz_common::properties::EnumProperty* point_color_property;
   rviz_common::properties::EnumProperty* point_style_property;
 
+  rviz_common::properties::EnumProperty* colormap_property;
   rviz_common::properties::EnumProperty* axis_property;
   rviz_common::properties::BoolProperty* auto_range_property;
   rviz_common::properties::FloatProperty* range_min_property;

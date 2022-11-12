@@ -23,7 +23,7 @@ factor_graph_interfaces::msg::FactorGraph::SharedPtr convert_to_msg(const gtsam:
       const Eigen::Quaterniond quat(pose.rotation().matrix());
 
       PoseWithID msg;
-      msg.type = 1;
+      msg.type = PoseWithID::NONE;
       msg.key = value.key;
 
       msg.pose.position.x = trans.x();
@@ -45,6 +45,7 @@ factor_graph_interfaces::msg::FactorGraph::SharedPtr convert_to_msg(const gtsam:
       const gtsam::Point3& point = point_value->value();
 
       PointWithID msg;
+      msg.type = PointWithID::NONE;
       msg.key = value.key;
       msg.point.x = point.x();
       msg.point.y = point.y();

@@ -25,6 +25,8 @@ struct PoseNode {
 
   void updateRange(PointColorSettings& color_settings);
 
+  void setVisibility(bool show_axes, bool show_points);
+
   void setPose(const Ogre::Vector3& position, const Ogre::Quaternion& orientation);
   void setPointCloud(const sensor_msgs::msg::PointCloud2& points_msg, const std::shared_ptr<PointColorSettings>& color_settings);
   void setAxesShape(float length, float radius);
@@ -35,8 +37,12 @@ struct PoseNode {
 
   Ogre::SceneNode* node;
 
+  Ogre::SceneNode* axes_node;
   std::shared_ptr<rviz_rendering::Axes> axes;
+
+  Ogre::SceneNode* points_node;
   std::shared_ptr<rviz_rendering::PointCloud> points;
+
   PointColorSettings color_settings;
 };
 

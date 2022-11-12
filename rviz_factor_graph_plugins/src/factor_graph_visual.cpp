@@ -10,14 +10,12 @@ FactorGraphVisual::FactorGraphVisual(Ogre::SceneManager* scene_manager, Ogre::Sc
   this->scene_manager_ = scene_manager;
   this->frame_node_ = parent_node->createChildSceneNode();
 
+  show_axes = true;
   axes_length = 0.5f;
   axes_radius = 0.02f;
 
   point_style = rviz_rendering::PointCloud::RM_FLAT_SQUARES;
   color_settings.reset(new PointColorSettings);
-
-  this->trajectory_lines.reset(new Lines(scene_manager, this->frame_node_));
-  this->trajectory_lines->setColor(1.0f, 0.0f, 0.0f, 1.0f);
 
   this->factor_lines.reset(new Lines(scene_manager, this->frame_node_));
   this->factor_lines->setColor(0.0f, 1.0f, 0.0f, 0.2f);
@@ -33,12 +31,7 @@ FactorGraphVisual::~FactorGraphVisual() {
 void FactorGraphVisual::reset() {
   this->last_graph_msg.reset();
   this->pose_nodes.clear();
-
-  this->trajectory_lines.reset(new Lines(scene_manager_, frame_node_));
-  this->trajectory_lines->setColor(1.0f, 0.0f, 0.0f, 1.0f);
-
-  this->factor_lines.reset(new Lines(scene_manager_, frame_node_));
-  this->factor_lines->setColor(0.0f, 1.0f, 0.0f, 0.2f);
+  this->factor_lines->clear();
 }
 
 void FactorGraphVisual::update() {
@@ -47,7 +40,7 @@ void FactorGraphVisual::update() {
   }
 
   while (!get_point_cloud_results.empty()) {
-    auto& result = get_point_cloud_results.front();
+    auto& result = get_point_cloud_results.front().first;
 
     if (result.wait_for(std::chrono::nanoseconds(1)) != std::future_status::ready) {
       break;
@@ -62,11 +55,16 @@ void FactorGraphVisual::update() {
         node->second->setPointCloud(response->points, color_settings);
         node->second->setPointStyle(point_size, point_alpha, point_style);
       }
+    } else {
+      const char chr = (response->key >> 56);
+      const size_t index = ((response->key << 8) >> 8);
+      RCLCPP_WARN_STREAM(rclcpp::get_logger("rviz_factor_graph_plugins"), "Failed to retrieve points for key=" << response->key << " symbol=" << chr << index);
     }
   }
 
-  const int count = 5;
-  for (int i = 0; i < count && get_point_cloud_results.size() < count; i++) {
+  const int count = 10;
+  const int max_requests = 5;
+  for (int i = 0; i < count && get_point_cloud_results.size() < max_requests; i++) {
     auto req = std::make_shared<GetPointCloud::Request>();
 
     if (!load_priority_queue.empty()) {
@@ -74,7 +72,13 @@ void FactorGraphVisual::update() {
       load_priority_queue.pop_front();
     } else {
       const auto& poses = last_graph_msg->poses;
-      req->key = poses[(loading_counter++) % poses.size()].key;
+      const auto& pose = poses[(loading_counter++) % poses.size()];
+
+      if (pose.type != factor_graph_interfaces::msg::PoseWithID::POINTS) {
+        continue;
+      }
+
+      req->key = pose.key;
     }
 
     auto found = pose_nodes.find(req->key);
@@ -86,8 +90,23 @@ void FactorGraphVisual::update() {
       continue;
     }
 
-    get_point_cloud_results.emplace_back(get_point_cloud->async_send_request(req));
+    get_point_cloud_results.emplace_back(get_point_cloud->async_send_request(req), get_point_cloud);
   }
+}
+
+void FactorGraphVisual::setVisibility(bool show_factors, bool show_axes, bool show_points) {
+  factor_lines->setVisible(show_factors);
+
+  this->show_axes = show_axes;
+  this->show_points = show_points;
+
+  for (auto& node : pose_nodes) {
+    node.second->setVisibility(show_axes, show_points);
+  }
+}
+
+void FactorGraphVisual::setFactorColor(const Ogre::ColourValue& factor_color) {
+  factor_lines->setColor(factor_color);
 }
 
 void FactorGraphVisual::setPose(const Ogre::Vector3& position, const Ogre::Quaternion& orientation) {
@@ -98,10 +117,10 @@ void FactorGraphVisual::setPose(const Ogre::Vector3& position, const Ogre::Quate
 void FactorGraphVisual::setMessage(const FactorGraph::ConstSharedPtr& graph_msg) {
   last_graph_msg = graph_msg;
 
-  std::vector<Ogre::Vector3> traj_positions(graph_msg->poses.size());
-
   for (int i = 0; i < graph_msg->poses.size(); i++) {
     const std::uint64_t key = graph_msg->poses[i].key;
+    const bool has_points = graph_msg->poses[i].type == factor_graph_interfaces::msg::PoseWithID::POINTS;
+
     const auto& trans = graph_msg->poses[i].pose.position;
     const auto& quat = graph_msg->poses[i].pose.orientation;
 
@@ -112,13 +131,14 @@ void FactorGraphVisual::setMessage(const FactorGraph::ConstSharedPtr& graph_msg)
     if (node == pose_nodes.end()) {
       node = pose_nodes.emplace_hint(node, key, new PoseNode(scene_manager_, frame_node_));
       node->second->setAxesShape(axes_length, axes_radius);
-      load_priority_queue.emplace_back(key);
+      node->second->setVisibility(show_axes, show_points);
+
+      if (has_points) {
+        load_priority_queue.emplace_back(key);
+      }
     }
     node->second->setPose(pos, ori);
-    traj_positions[i] = pos;
   }
-
-  trajectory_lines->setPoints(traj_positions, true);
 
   std::vector<Ogre::Vector3> factor_points;
   factor_points.reserve(graph_msg->binary_factors.size());
@@ -163,6 +183,7 @@ void FactorGraphVisual::setColorSettings(const std::shared_ptr<PointColorSetting
     bool needs_recoloring = false;
     needs_recoloring |= (settings.mode != color_settings->mode);
     needs_recoloring |= (settings.axis != color_settings->axis);
+    needs_recoloring |= (settings.colormap != color_settings->colormap);
     needs_recoloring |= std::abs(settings.color.r - color_settings->color.r) > 1e-3;
     needs_recoloring |= std::abs(settings.color.g - color_settings->color.g) > 1e-3;
     needs_recoloring |= std::abs(settings.color.b - color_settings->color.b) > 1e-3;
@@ -176,12 +197,6 @@ void FactorGraphVisual::setColorSettings(const std::shared_ptr<PointColorSetting
 }
 
 void FactorGraphVisual::setGetPointCloudService(std::shared_ptr<rclcpp::Node> node, rclcpp::Client<GetPointCloud>::SharedPtr service) {
-  // poor way to avoid accessing disposed service calls
-  if (!get_point_cloud_results.empty()) {
-    get_point_cloud_results_disposed.insert(get_point_cloud_results_disposed.end(), get_point_cloud_results.begin(), get_point_cloud_results.end());
-    get_point_cloud_results.clear();
-  }
-
   get_point_cloud = service;
 }
 

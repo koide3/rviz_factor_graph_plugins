@@ -38,6 +38,10 @@ Lines::~Lines() {
   manual_object_material->unload();
 }
 
+void Lines::clear() {
+  manual_object->clear();
+}
+
 void Lines::setPoints(const std::vector<Ogre::Vector3>& points, bool line_strip) {
   manual_object->clear();
   manual_object->begin(manual_object_material->getName(), line_strip ? Ogre::RenderOperation::OT_LINE_STRIP : Ogre::RenderOperation::OT_LINE_LIST, "rviz_rendering");
@@ -47,7 +51,6 @@ void Lines::setPoints(const std::vector<Ogre::Vector3>& points, bool line_strip)
   }
 
   manual_object->end();
-  setVisible(true);
 }
 
 void Lines::setVisible(bool visible) {
