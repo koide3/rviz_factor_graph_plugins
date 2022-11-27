@@ -1,8 +1,8 @@
-#include <factor_graph_visual.hpp>
+#include <rviz_factor_graph_plugins/plugins/factor_graph_visual.hpp>
 
 #include <iostream>
-#include <pose_node.hpp>
-#include <rviz_lines.hpp>
+#include <rviz_factor_graph_plugins/plugins/pose_node.hpp>
+#include <rviz_factor_graph_plugins/common/rviz_lines.hpp>
 
 namespace rviz_factor_graph_plugins {
 
@@ -61,7 +61,7 @@ void FactorGraphVisual::update() {
         node->second->setPointCloud(response->points, color_settings);
         node->second->setPointStyle(point_size, point_alpha, point_style);
       } else {
-        RCLCPP_WARN_STREAM(rclcpp::get_logger("rviz_factor_graph_plugins"), "Node for the fetched points is not found key=" << response->key << " symbol=" << chr << index);
+        RCLCPP_WARN_STREAM(rclcpp::get_logger("rviz_factor_graph_plugins"), "Node for the fetched points is not found. key=" << response->key << " symbol=" << chr << index);
       }
     } else {
       RCLCPP_WARN_STREAM(rclcpp::get_logger("rviz_factor_graph_plugins"), "Failed to retrieve points for key=" << response->key << " symbol=" << chr << index);
@@ -72,7 +72,7 @@ void FactorGraphVisual::update() {
   for (int i = 0; i < max_load_count && get_point_cloud_results.size() < max_requests; i++) {
     auto req = std::make_shared<GetPointCloud::Request>();
 
-    // Load points for newly created points
+    // Load points for newly created frames
     if (!load_priority_queue.empty()) {
       req->key = load_priority_queue.front();
       load_priority_queue.pop_front();

@@ -7,8 +7,8 @@
 
 #include <factor_graph_interfaces/msg/factor_graph.hpp>
 
-#include <factor_graph_visual.hpp>
-#include <point_color_settings.hpp>
+#include <rviz_factor_graph_plugins/plugins/factor_graph_visual.hpp>
+#include <rviz_factor_graph_plugins/plugins/point_color_settings.hpp>
 
 namespace rviz_factor_graph_plugins {
 

@@ -16,15 +16,14 @@ find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
 qt5_wrap_cpp(rviz_factor_graph_plugins_moc_files
-  include/factor_graph_display.hpp
+  include/rviz_factor_graph_plugins/plugins/factor_graph_display.hpp
 )
 ament_auto_add_library(rviz_factor_graph_plugins SHARED
-  src/colormap.cpp
-  src/rviz_lines.cpp
-  src/pose_node.cpp
-  src/factor_graph_visual.cpp
-  src/factor_graph_display.cpp
-  src/rviz_factor_graph_plugins.cpp
+  src/rviz_factor_graph_plugins/common/colormap.cpp
+  src/rviz_factor_graph_plugins/common/rviz_lines.cpp
+  src/rviz_factor_graph_plugins/plugins/pose_node.cpp
+  src/rviz_factor_graph_plugins/plugins/factor_graph_visual.cpp
+  src/rviz_factor_graph_plugins/plugins/factor_graph_display.cpp
   ${rviz_factor_graph_plugins_moc_files}
 )
 target_include_directories(rviz_factor_graph_plugins PUBLIC

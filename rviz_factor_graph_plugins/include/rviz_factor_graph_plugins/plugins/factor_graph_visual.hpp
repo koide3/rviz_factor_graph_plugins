@@ -13,7 +13,7 @@
 #include <factor_graph_interfaces/msg/factor_graph.hpp>
 #include <factor_graph_interfaces/srv/get_point_cloud.hpp>
 
-#include <point_color_settings.hpp>
+#include <rviz_factor_graph_plugins/plugins/point_color_settings.hpp>
 
 namespace rviz_factor_graph_plugins {
 

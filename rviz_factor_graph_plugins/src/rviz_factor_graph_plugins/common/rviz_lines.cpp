@@ -1,5 +1,6 @@
-#include <rviz_lines.hpp>
+#include <rviz_factor_graph_plugins/common/rviz_lines.hpp>
 
+#include <string>
 #include <OgreSceneNode.h>
 #include <OgreSceneManager.h>
 #include <OgreManualObject.h>

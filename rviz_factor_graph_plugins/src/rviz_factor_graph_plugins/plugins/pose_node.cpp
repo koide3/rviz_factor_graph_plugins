@@ -1,10 +1,10 @@
-#include <pose_node.hpp>
+#include <rviz_factor_graph_plugins/plugins/pose_node.hpp>
 
 #include <iostream>
 #include <rclcpp/rclcpp.hpp>
 #include <rviz_rendering/objects/axes.hpp>
 
-#include <colormap.hpp>
+#include <rviz_factor_graph_plugins/common/colormap.hpp>
 
 namespace rviz_factor_graph_plugins {
 
@@ -163,6 +163,7 @@ void PoseNode::setPointCloud(const sensor_msgs::msg::PointCloud2& points_msg, co
   this->points->addPoints(points.begin(), points.end());
   this->points->setRenderMode(rviz_rendering::PointCloud::RenderMode::RM_POINTS);
   this->color_settings = *color_settings;
+  this->points_bg.reset();
 
   points_node->attachObject(this->points.get());
 }
@@ -175,6 +176,7 @@ void PoseNode::setVisibility(bool show_axes, bool show_points) {
 void PoseNode::setPose(const Ogre::Vector3& position, const Ogre::Quaternion& orientation) {
   if (points && recoloringRequired(position, orientation)) {
     // Reset points to re-compute point colors
+    points_bg = points;
     points.reset();
   }
 

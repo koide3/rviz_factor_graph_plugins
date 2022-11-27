@@ -1,5 +1,5 @@
 #include <array>
-#include <colormap.hpp>
+#include <rviz_factor_graph_plugins/common/colormap.hpp>
 
 namespace rviz_factor_graph_plugins {
 

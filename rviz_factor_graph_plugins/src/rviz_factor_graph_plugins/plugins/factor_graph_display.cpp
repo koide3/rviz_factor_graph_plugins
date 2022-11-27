@@ -1,6 +1,6 @@
-#include <factor_graph_display.hpp>
+#include <rviz_factor_graph_plugins/plugins/factor_graph_display.hpp>
 
-#include <colormap.hpp>
+#include <rviz_factor_graph_plugins/common/colormap.hpp>
 
 namespace rviz_factor_graph_plugins {
 

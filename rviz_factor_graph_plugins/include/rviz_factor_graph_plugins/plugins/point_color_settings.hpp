@@ -4,7 +4,7 @@
 #include <OgreVector3.h>
 #include <OgreQuaternion.h>
 #include <OgreColourValue.h>
-#include <colormap.hpp>
+#include <rviz_factor_graph_plugins/common/colormap.hpp>
 
 namespace rviz_factor_graph_plugins {
 

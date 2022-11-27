@@ -8,7 +8,7 @@
 
 #include <rviz_rendering/objects/point_cloud.hpp>
 
-#include <point_color_settings.hpp>
+#include <rviz_factor_graph_plugins/plugins/point_color_settings.hpp>
 
 namespace rviz_rendering {
 class Axes;
@@ -22,8 +22,6 @@ struct PoseNode {
 
   Ogre::Vector3 getPosition() const;
   Ogre::Quaternion getOrientation() const;
-
-  void updateRange(PointColorSettings& color_settings);
 
   void setVisibility(bool show_axes, bool show_points);
 
@@ -42,6 +40,7 @@ struct PoseNode {
 
   Ogre::SceneNode* points_node;
   std::shared_ptr<rviz_rendering::PointCloud> points;
+  std::shared_ptr<rviz_rendering::PointCloud> points_bg;
 
   PointColorSettings color_settings;
 };
