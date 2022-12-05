@@ -1,5 +1,7 @@
 #include <rviz_factor_graph_plugins/plugins/factor_graph_display.hpp>
 
+#include <rviz_common/properties/int_property.hpp>
+
 #include <rviz_factor_graph_plugins/common/colormap.hpp>
 
 namespace rviz_factor_graph_plugins {
