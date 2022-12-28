@@ -13,7 +13,8 @@
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
 
-  <depend>rosidl_interface_packages</depend>
+  <build_depend>rosidl_default_generators</build_depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
   <member_of_group>rosidl_interface_packages</member_of_group>
 
   <export>
